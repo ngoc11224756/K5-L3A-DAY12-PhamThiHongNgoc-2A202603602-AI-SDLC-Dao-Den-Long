@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "headless": "node dist/headless.mjs",
     "test": "npm run build:headless && node --test tests/*.test.mjs",
-    "verify": "npm test && node scripts/verify-phase2.mjs"
+    "verify": "npm test && node scripts/verify-phase3.mjs"
   },
   "dependencies": {
     "three": "^0.174.0"

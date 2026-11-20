@@ -1,4 +1,4 @@
-# Đảo Đèn Lồng — Ba Hòn Đảo (Phase 2 · Contract v1.1)
+# Đảo Đèn Lồng — Ba Hòn Đảo (Phase 3 · Contract v1.2)
 
 > **Video demo:** *(Sẽ cập nhật link Release `v1.0.0` / `docs/demo/demo.mp4` ở Phase 4)*
 > **Học viên:** Phạm Thị Hồng Ngọc · **MSSV:** `2A202603602` · **Lớp:** K5-L3A · **Lab:** Day 12 AI SDLC
@@ -79,4 +79,6 @@ Mọi phần sáng tạo chỉ nằm trong `src/render/`, **tách hoàn toàn kh
 - **Đánh giá & Retro:** [docs/notes/retro.md](docs/notes/retro.md)
 - **Bằng chứng Phase 1:** [docs/proof/phase-1/PROOF.md](docs/proof/phase-1/PROOF.md)
 - **Bằng chứng Phase 2:** [docs/proof/phase-2/PROOF.md](docs/proof/phase-2/PROOF.md)
+- **Bằng chứng Phase 3:** [docs/proof/phase-3/PROOF.md](docs/proof/phase-3/PROOF.md)
+- **ADR & Breaking Changes:** [docs/notes/ADR-001-lantern-fuel-and-dawn-win.md](docs/notes/ADR-001-lantern-fuel-and-dawn-win.md), [CHANGELOG.md](CHANGELOG.md)
 - **Bản quyền & Nguồn:** [CREDITS.md](CREDITS.md), [LICENSE](LICENSE)

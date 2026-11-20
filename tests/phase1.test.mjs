@@ -51,13 +51,17 @@ function runHeadless({ seed = 42, night = 1, ticks = 300, snapshotEvery = 10, sc
   }
 }
 
-// Updated for Phase 2 (Ticket-02): Contract v1.1 standard values & deposit-based mote scoring
-test('Contract file has required v1.1 fields and standard tuning', () => {
-  assert.equal(CONTRACT.contract_version, '1.1');
+// Updated for Phase 3 (Ticket-03): Contract v1.2 breaking changes (fuel, relight, dawn_survived win)
+test('Contract file has required v1.2 fields and standard tuning', () => {
+  assert.equal(CONTRACT.contract_version, '1.2');
   assert.equal(CONTRACT.tuning.player_speed, 6.0);
   assert.equal(CONTRACT.tuning.carry_capacity, 10);
+  assert.equal(CONTRACT.tuning.capacity_max, 20);
   assert.equal(CONTRACT.tuning.lantern_cost, 10);
-  assert.equal(CONTRACT.tuning.lantern_count_night1, 5);
+  assert.equal(CONTRACT.tuning.relight_cost, 5);
+  assert.equal(CONTRACT.tuning.fuel_max, 100);
+  assert.equal(CONTRACT.tuning.win_ratio, 0.6);
+  assert.equal(CONTRACT.tuning.night1_duration_s, 240);
   assert.equal(CONTRACT.tuning.fall_enabled, true);
   assert.equal(CONTRACT.tuning.dash_speed, 14.0);
 });
@@ -125,7 +129,8 @@ test('Mote pickup respects pickup_radius (1.0m) and carry_capacity (10)', () => 
   assert.equal(picked.at(-1).data.carried, 10);
 });
 
-test('Deposit (+10/mote), lantern_lit (+100), scenario pre-lit gives no score, and win bonus', () => {
+// Updated for Phase 3 (Ticket-03): all_lit early win replaced by dawn_survived; +5/mote deposit, +100 first light
+test('Deposit (+5/mote), lantern_lit (+100, relight:false), no early win, and dawn_survived win', () => {
   const { lines } = runHeadless({
     seed: 3,
     ticks: 120,
@@ -136,13 +141,13 @@ test('Deposit (+10/mote), lantern_lit (+100), scenario pre-lit gives no score, a
       player: { pos: [0, 0, 0], carried: 10, flames: 3 },
       motes: [],
       shades: [],
-      time_left_s: 100,
+      time_left_s: 1.0,
       lanterns: [
         { id: 'L1', pos: [0, 0, 1.5], deposited: 0, lit: false },
-        { id: 'L2', lit: true },
-        { id: 'L3', lit: true },
-        { id: 'L4', lit: true },
-        { id: 'L5', lit: true }
+        { id: 'L2', lit: true, fuel: 100 },
+        { id: 'L3', lit: true, fuel: 100 },
+        { id: 'L4', lit: true, fuel: 100 },
+        { id: 'L5', lit: true, fuel: 100 }
       ]
     },
     inputs: {
@@ -158,15 +163,18 @@ test('Deposit (+10/mote), lantern_lit (+100), scenario pre-lit gives no score, a
   assert.deepEqual(deposit.data, { lantern_id: 'L1', amount: 10, deposited: 10 });
 
   const lit = lines.find((r) => r.type === 'event' && r.name === 'lantern_lit');
-  assert.equal(lit.data.lantern_id, 'L1');
+  assert.deepEqual(lit.data, { lantern_id: 'L1', relight: false });
 
+  // Must NOT end at tick 1; must survive until dawn (tick 60)
   const over = lines.find((r) => r.type === 'event' && r.name === 'game_over');
-  assert.deepEqual(over.data, { result: 'won', reason: 'all_lit' });
+  assert.equal(over.tick, 60);
+  assert.deepEqual(over.data, { result: 'won', reason: 'dawn_survived' });
 
   const end = lines.at(-1);
   assert.equal(end.state, 'won');
-  // Score: 10*10 (deposited) + 100 (lantern) + floor(99.983)*2 (198) + 3*50 (150) = 548
-  assert.equal(end.score, 100 + 100 + 198 + 150);
+  assert.equal(end.ticks, 60);
+  // Score: 10*5 (50) + 100 (first light) + 5*(50 + 99) (745) + 3*50 (150) = 1045
+  assert.equal(end.score, 50 + 100 + 5 * (50 + 99) + 150);
 });
 
 test('Light pulse stuns (120 ticks) & pushes (4m over 15 ticks) shades in 3D 5m radius, cooldown 3s', () => {

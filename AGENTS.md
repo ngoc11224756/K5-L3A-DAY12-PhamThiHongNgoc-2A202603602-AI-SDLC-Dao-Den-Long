@@ -7,12 +7,12 @@
 - Run 3D game: `npm run dev`
 - Run tests (Phase 1 regression + Phase 2 scenarios): `npm test`
 - Run verification & proof capture: `npm run verify`
-- Headless CLI (Contract v1.1): `node dist/headless.mjs --seed 42 --night 1 --ticks 600 --out /tmp/out.jsonl` (`--night` supports `1`, `2`, `3`)
+- Headless CLI (Contract v1.2): `node dist/headless.mjs --seed 42 --night 1 --ticks 600 --out /tmp/out.jsonl` (`--night` supports `1`, `2`, `3`)
 
 ## Architecture Rules
 1. **Strict core/render split**: `src/core/` (`types.ts`, `prng.ts`, `config.ts`, `maps.ts`, `validation.ts`, `simulation.ts`) MUST have zero imports from `three`, `window`, `document`, or browser APIs. Headless and 3D render share the exact same `src/core/` simulation.
-2. **Single source of truth for tuning**: `src/core/config.ts` MUST match `game.contract.json` (Contract v1.1) exactly.
-3. **Strict 12-step tick order**: Always preserve the Ticket-02 tick order in `src/core/simulation.ts` (pause first → counters → player move/dash/jump/wind/fall → pickups → lantern interact → safe zones → pulse → enemy move → collisions → spawns → win/lose → snapshot).
+2. **Single source of truth for tuning**: `src/core/config.ts` MUST match `game.contract.json` (Contract v1.2) exactly.
+3. **Strict 12-step tick order + integer fuel**: Always preserve the Ticket-02/03 tick order in `src/core/simulation.ts` (pause → counters & integer `1/60` fuel decay/drain → `lantern_out` → player move → pickups → lantern deposit/refuel → safe zones (`fuel >= 30`) → pulse → enemy move (`drain`) → collisions → spawns → dawn win/lose → snapshot).
 4. **Determinism**: Never use `Math.random()` or `Date.now()` inside `src/core/`. Always use `SeededRng` (`src/core/prng.ts`).
 5. **Creativity isolation**: Any visual/audio/creative additions MUST live in `src/render/` and NEVER change headless simulation state or JSONL output.
 
