@@ -77,6 +77,38 @@ export class GameSceneRenderer {
   private skyLanterns: SkyLantern[] = [];
   private elapsed = 0;
   colorblindMode = false;
+  reducedMotion = false;
+
+  // Shared geometries for high FPS in 200-shade + 100-mote benchmark
+  private sharedShadeGeo = new THREE.DodecahedronGeometry(0.72, 1);
+  private sharedEyeGeo = new THREE.SphereGeometry(0.11, 6, 6);
+  private sharedStunGeo = (() => {
+    const g = new THREE.TorusGeometry(0.85, 0.06, 6, 18);
+    g.rotateX(Math.PI / 2);
+    return g;
+  })();
+  private sharedMoteCoreGeo = new THREE.SphereGeometry(0.2, 8, 8);
+  private sharedMoteHaloGeo = new THREE.SphereGeometry(0.4, 8, 8);
+  private sharedMoteCoreMat = new THREE.MeshBasicMaterial({ color: PALETTE.moteCore });
+  private sharedMoteHaloMat = new THREE.MeshBasicMaterial({
+    color: PALETTE.moteHalo,
+    transparent: true,
+    opacity: 0.35
+  });
+  private sharedEyeMat = new THREE.MeshBasicMaterial({ color: PALETTE.shadeRim });
+  private sharedStunMat = new THREE.MeshBasicMaterial({ color: PALETTE.gold });
+  private sharedShadeNormalMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.shadeBody,
+    emissive: PALETTE.shadeRim,
+    emissiveIntensity: 0.55,
+    roughness: 0.35
+  });
+  private sharedShadeStunMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.shadeStun,
+    emissive: PALETTE.shadeRim,
+    emissiveIntensity: 0.55,
+    roughness: 0.35
+  });
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -477,28 +509,16 @@ export class GameSceneRenderer {
     const group = new THREE.Group();
     group.position.set(pos[0], pos[1], pos[2]);
 
-    const body = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.72, 1),
-      new THREE.MeshStandardMaterial({
-        color: PALETTE.shadeBody,
-        emissive: PALETTE.shadeRim,
-        emissiveIntensity: 0.55,
-        roughness: 0.35
-      })
-    );
+    const body = new THREE.Mesh(this.sharedShadeGeo, this.sharedShadeNormalMat);
     group.add(body);
 
-    const eyeGeo = new THREE.SphereGeometry(0.11, 8, 8);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: PALETTE.shadeRim });
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    const eyeL = new THREE.Mesh(this.sharedEyeGeo, this.sharedEyeMat);
     eyeL.position.set(-0.22, 0.12, 0.62);
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    const eyeR = new THREE.Mesh(this.sharedEyeGeo, this.sharedEyeMat);
     eyeR.position.set(0.22, 0.12, 0.62);
     group.add(eyeL, eyeR);
 
-    const stunGeo = new THREE.TorusGeometry(0.85, 0.06, 8, 24);
-    stunGeo.rotateX(Math.PI / 2);
-    const stunRing = new THREE.Mesh(stunGeo, new THREE.MeshBasicMaterial({ color: PALETTE.gold }));
+    const stunRing = new THREE.Mesh(this.sharedStunGeo, this.sharedStunMat);
     stunRing.position.y = 0.95;
     stunRing.visible = false;
     group.add(stunRing);
@@ -511,14 +531,8 @@ export class GameSceneRenderer {
     const group = new THREE.Group();
     group.position.set(pos[0], pos[1] + 0.85, pos[2]);
     group.add(
-      new THREE.Mesh(
-        new THREE.SphereGeometry(0.2, 10, 10),
-        new THREE.MeshBasicMaterial({ color: PALETTE.moteCore })
-      ),
-      new THREE.Mesh(
-        new THREE.SphereGeometry(0.4, 10, 10),
-        new THREE.MeshBasicMaterial({ color: PALETTE.moteHalo, transparent: true, opacity: 0.35 })
-      )
+      new THREE.Mesh(this.sharedMoteCoreGeo, this.sharedMoteCoreMat),
+      new THREE.Mesh(this.sharedMoteHaloGeo, this.sharedMoteHaloMat)
     );
     this.scene.add(group);
     return group;
@@ -594,6 +608,89 @@ export class GameSceneRenderer {
     this.charmMap.clear();
     for (const s of this.skyLanterns) this.scene.remove(s.mesh);
     this.skyLanterns = [];
+  }
+
+  getRendererInfo(): string {
+    const gl = this.renderer.getContext();
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const gpu = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : 'WebGL2';
+    return `Three.js 0.174 (${gpu})`;
+  }
+
+  /**
+   * Ticket-04 benchmark render: camera orbits (0,0,0) radius 30m, Y=15m, CCW from (30,15,0), 15s/rev.
+   * Creative sky lanterns are disabled in benchmark mode.
+   */
+  renderBenchmark(sim: GameSimulation, orbitSec: number, dt: number): void {
+    this.elapsed += dt;
+    if (this.builtNight !== sim.night) {
+      this.buildNightGeometry(sim.night);
+    }
+    this.renderer.setSize(1280, 720, false);
+    this.camera.aspect = 1280 / 720;
+    this.camera.updateProjectionMatrix();
+
+    // Sync entities without sky lanterns
+    this.playerGroup.position.set(0, 0, 0);
+    this.playerGroup.visible = true;
+    for (const m of this.orbitMotes) m.visible = false;
+
+    let litCount = 0;
+    for (const l of sim.lanterns) {
+      let vis = this.lanternMap.get(l.id);
+      if (!vis) {
+        vis = this.createLanternVisual(l.pos);
+        this.lanternMap.set(l.id, vis);
+      }
+      const mat = vis.bulb.material as THREE.MeshStandardMaterial;
+      const safeMat = vis.safeRing.material as THREE.MeshBasicMaterial;
+      if (l.lit) {
+        litCount += 1;
+        vis.bulb.scale.set(1, 1, 1);
+        vis.tearBand.visible = false;
+        vis.fuelBarGroup.visible = true;
+        vis.fuelBarGroup.lookAt(this.camera.position);
+        mat.color.setHex(PALETTE.lanternCore);
+        mat.emissive.setHex(PALETTE.lanternLit);
+        mat.emissiveIntensity = 1.85;
+        vis.light.intensity = 4.2;
+        safeMat.opacity = 0.34;
+        vis.progressBar.visible = false;
+      } else {
+        vis.bulb.scale.set(1, 0.8, 1);
+        vis.tearBand.visible = true;
+        vis.fuelBarGroup.visible = false;
+        mat.color.setHex(PALETTE.lanternOff);
+        vis.light.intensity = 0;
+        safeMat.opacity = 0;
+        vis.progressBar.visible = false;
+      }
+    }
+    const progress = litCount / Math.max(1, sim.lanterns.length);
+    this.hemiLight.intensity = 0.15 + 0.55 * progress;
+    this.fog.density = 0.017 - progress * 0.009;
+
+    for (const s of sim.shades) {
+      let vis = this.shadeMap.get(s.id);
+      if (!vis) {
+        vis = this.createShadeVisual(s.pos);
+        this.shadeMap.set(s.id, vis);
+      }
+      vis.group.position.set(s.pos[0], s.pos[1], s.pos[2]);
+    }
+    for (const m of sim.motes) {
+      let vis = this.moteMap.get(m.id);
+      if (!vis) {
+        vis = this.createMoteVisual(m.pos);
+        this.moteMap.set(m.id, vis);
+      }
+      vis.position.set(m.pos[0], m.pos[1] + 0.85, m.pos[2]);
+    }
+
+    const angle = (orbitSec / 15) * Math.PI * 2;
+    this.camera.position.set(Math.cos(angle) * 30, 15, Math.sin(angle) * 30);
+    this.camera.lookAt(0, 0, 0);
+    this.renderer.render(this.scene, this.camera);
   }
 
   /** Projects a world position to normalized screen coordinates for off-screen lantern arrow. */
@@ -685,8 +782,12 @@ export class GameSceneRenderer {
     this.fog.density = 0.017 - progress * 0.009;
     this.dirLight.intensity = 0.4 + progress * 0.45;
 
-    // Shades
+    // Shades (shared materials updated once per frame for high FPS)
     const rimHex = this.colorblindMode ? PALETTE.shadeRimColorblind : PALETTE.shadeRim;
+    this.sharedEyeMat.color.setHex(rimHex);
+    this.sharedShadeNormalMat.emissive.setHex(rimHex);
+    this.sharedShadeStunMat.emissive.setHex(rimHex);
+
     const activeShadeIds = new Set<string>();
     for (const s of sim.shades) {
       activeShadeIds.add(s.id);
@@ -695,24 +796,15 @@ export class GameSceneRenderer {
         vis = this.createShadeVisual(s.pos);
         this.shadeMap.set(s.id, vis);
       }
-      vis.group.position.set(
-        s.pos[0],
-        s.pos[1] + Math.sin(this.elapsed * 3.5 + s.pos[0]) * 0.12,
-        s.pos[2]
-      );
+      const bob = this.reducedMotion ? 0 : Math.sin(this.elapsed * 3.5 + s.pos[0]) * 0.12;
+      vis.group.position.set(s.pos[0], s.pos[1] + bob, s.pos[2]);
       vis.group.lookAt(sim.player.pos[0], vis.group.position.y, sim.player.pos[2]);
-      const mat = vis.body.material as THREE.MeshStandardMaterial;
-      for (const eye of vis.eyes) {
-        (eye.material as THREE.MeshBasicMaterial).color.setHex(rimHex);
-      }
       if (s.state === 'stunned') {
-        mat.color.setHex(PALETTE.shadeStun);
-        mat.emissive.setHex(rimHex);
+        vis.body.material = this.sharedShadeStunMat;
         vis.stunRing.visible = true;
         vis.stunRing.rotation.z = this.elapsed * 5;
       } else {
-        mat.color.setHex(PALETTE.shadeBody);
-        mat.emissive.setHex(rimHex);
+        vis.body.material = this.sharedShadeNormalMat;
         vis.stunRing.visible = false;
       }
       vis.group.scale.setScalar(s.state === 'spawning' ? 0.55 : s.state === 'drain' ? 1.15 : 1.0);
