@@ -1,0 +1,5 @@
+#!/bin/sh
+# Local automated verification hook (enable with: git config core.hooksPath .githooks)
+set -e
+echo "[pre-push hook] Running npm test before push..."
+npm test
