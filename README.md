@@ -1,84 +1,77 @@
-# Đảo Đèn Lồng — Ba Hòn Đảo (Phase 3 · Contract v1.2)
+# Đảo Đèn Lồng (Lantern Island) — v1.0.0
 
-> **Video demo:** *(Sẽ cập nhật link Release `v1.0.0` / `docs/demo/demo.mp4` ở Phase 4)*
-> **Học viên:** Phạm Thị Hồng Ngọc · **MSSV:** `2A202603602` · **Lớp:** K5-L3A · **Lab:** Day 12 AI SDLC
+> **Video demo:** *(Đính kèm trên [GitHub Release v1.0.0](https://github.com/ngoc11224756/K5-L3A-DAY12-PhamThiHongNgoc-2A202603602-AI-SDLC-Dao-Den-Long/releases/tag/v1.0.0) hoặc `docs/demo/demo.mp4`)*
+> **Học viên:** Phạm Thị Hồng Ngọc · **MSSV:** `2A202603602` · **Lớp:** K5-L3A · **Contract:** `v1.3`
 
-Game 3D góc nhìn thứ ba qua **3 Đêm (Đảo Bến · Đảo Cau · Đảo Chuông)**. Người chơi điều khiển **Mây** gom **đom đóm**, dùng **Lướt**, **Tỏa Sáng**, **Bùa Gió** và **Bục Nhảy** để vượt qua **Bóng Mực**, **Gió Lạc** và **Gió Mạnh**, thắp sáng toàn bộ Đèn Lồng Lớn để đón Bình Minh.
+Game 3D góc nhìn thứ ba qua **3 Đêm (Đảo Bến · Đảo Cau · Đảo Chuông)**. Người chơi điều khiển **Mây** gom **đom đóm**, thắp sáng và châm dầu cho các **Đèn Lồng Lớn**, vượt qua **Bóng Mực** hút dầu, **Gió Lạc** cướp ánh sáng và **Gió Mạnh** để giữ đảo sáng tới Bình Minh.
 
 ---
 
-## 1. Cài đặt và chạy (3 lệnh)
+## 1. Yêu cầu hệ thống & Cài đặt (3 lệnh)
 
-Yêu cầu: **Node.js >= 18** (chạy tốt trên macOS và Linux).
+- **Hệ điều hành:** macOS hoặc Linux
+- **Runtime:** Node.js >= 18, trình duyệt hỗ trợ WebGL2 (Chrome/Chromium dùng cho chế độ Benchmark)
 
 ```bash
 npm ci
 npm run build
-npm run dev
+node dist/run.mjs
 ```
 
-Mở trình duyệt tại `http://localhost:5173` để chơi từ Menu chính (chọn hành trình 3 Đêm hoặc chọn từng Đêm 1 / 2 / 3).
+Trình duyệt sẽ tự mở game tại `http://127.0.0.1:5173` (có đầy đủ Menu chính, 3 Đêm, Bảng Xếp Hạng cục bộ và Cài đặt Dễ tiếp cận).
 
 ---
 
-## 2. Điều khiển
+## 2. Điều khiển (Có thể đổi toàn bộ 9 phím trong Cài đặt)
 
-| Phím / Thao tác | Chức năng |
+| Phím mặc định | Chức năng |
 |---|---|
-| `W / A / S / D` hoặc `↑ / ↓ / ← / →` | Di chuyển theo hướng camera (`6.0 m/s`, có Bùa Gió `7.2 m/s`) |
-| **Kéo chuột ngang** hoặc `Z / C` | Xoay camera quanh Mây (độ nhạy chỉnh trong Cài đặt) |
+| `W / A / S / D` hoặc `↑ / ↓ / ← / →` | Di chuyển (`6.0 m/s`, có Bùa Gió `7.2 m/s`) |
+| **Kéo chuột ngang** hoặc `Z / C` | Xoay camera quanh Mây |
 | `Space` | Nhảy (`7.0 m/s`) |
-| `Shift` | **Lướt (Dash)** — `14 m/s` trong `0.2 s`, hồi chiêu `1.5 s` (không hồi chiêu khi có Bùa Gió) |
-| `E` | Nạp đom đóm vào Đèn Lồng Lớn gần nhất (trong `2.0 m`, cần `10` đom đóm để thắp) |
-| `Q` hoặc `F` | **Tỏa Sáng (Pulse)** — tốn `3` đom đóm, bán kính 3D `5 m`, choáng `2 s` & đẩy lùi `4 m`, hồi chiêu `3 s` |
-| `Esc` hoặc `P` | Tạm dừng (đóng băng logic, mở menu Tiếp tục / Chơi lại / Cài đặt / Về menu) |
+| `Shift` | **Lướt (Dash)** — `14 m/s` trong `0.2 s`, hồi chiêu `1.5 s` (0 hồi chiêu khi có Bùa Gió) |
+| `E` | Tương tác: nạp đom đóm thắp đèn (`10` lần đầu / `5` thắp lại) hoặc **châm dầu** đèn đang sáng |
+| `Q` hoặc `F` | **Tỏa Sáng (Pulse)** — tốn `3` đom đóm, bán kính 3D `5 m`, choáng `2 s` & đẩy lùi `4 m` |
+| `Esc` hoặc `P` | Tạm dừng (đóng băng toàn bộ logic, mở menu Tiếp tục / Chơi lại / Cài đặt / Về menu) |
 
 ---
 
-## 3. Cách tính điểm & Thông số chuẩn (`game.contract.json` v1.1)
+## 3. Kiểm thử, Headless, Benchmark, Soak & Bảng Xếp Hạng (Contract v1.3)
 
-| Sự kiện | Điểm |
-|---|---:|
-| Nạp mỗi đom đóm vào đèn (`per_mote`) | `+10` |
-| Thắp sáng 1 Đèn Lồng Lớn (`per_lantern`) | `+100` |
-| Mỗi Bóng Mực trúng Tỏa Sáng (`per_stun`) | `+5` |
-| Thưởng thời gian còn lại khi thắng (`per_second_left`) | `+2 × floor(giây còn lại)` |
-| Thưởng Ngọn Lửa còn lại khi thắng (`per_flame_left`) | `+50 × Ngọn Lửa còn lại` |
+| Chức năng | Lệnh chạy |
+|---|---|
+| Chạy toàn bộ 23 test (Phase 1–4) | `npm test` |
+| Chạy Headless CLI (Đêm `1`, `2`, `3`) | `node dist/headless.mjs --seed 42 --night 1 --ticks 600 --out /tmp/out.jsonl` |
+| Chạy Benchmark 3D 1280×720 (30 s) | `node dist/bench.mjs --seed 42 --duration 30 --out bench.json` |
+| Chạy Soak Test (10 Đêm liên tiếp) | `node --expose-gc --max-semi-space-size=2 dist/soak.mjs --seed 7 --nights 10 --out soak.json` |
+| Xuất Bảng Xếp Hạng cục bộ | `node dist/run.mjs --export-leaderboard out.json` |
+
+*Lưu ý về VSync trong Benchmark:* `dist/bench.mjs` khởi chạy Chrome ở cửa sổ `1280×720` kèm cờ `--disable-gpu-vsync --disable-frame-rate-limit` (trên macOS/Linux có thể vẫn chịu giới hạn trình tổng hợp màn hình ở 60/120 Hz tùy phần cứng).
 
 ---
 
-## 4. Kiểm thử & Chế độ Headless (Test Contract v1.1)
+## 4. Tính năng Dễ tiếp cận (Accessibility)
 
-```bash
-npm test      # Chạy 16 test (10 hồi quy Phase 1 + 6 scenario Phase 2)
-npm run verify # Chạy test + benchmark 21.600 tick + kiểm tra tất định SHA-256
-```
-
-Chạy CLI headless trực tiếp cho Đêm `1`, `2`, hoặc `3`:
-
-```bash
-node dist/headless.mjs --seed 42 --night 3 --ticks 21600 --out /tmp/out.jsonl
-```
+- **Đổi phím điều khiển:** Hỗ trợ đổi toàn bộ 9 hành động, tự phát hiện trùng phím và có nút *Khôi phục mặc định* (lưu `localStorage`).
+- **Chế độ mù màu ("Bảng màu dễ phân biệt"):** Đổi viền & mắt Bóng Mực sang `#00B3FF`, cảnh báo UI sang `#FFFFFF` kèm `⚠`; đèn tắt phân biệt bằng hình dạng (xẹp 20% + vệt rách giấy); đèn `< 30` dầu nhấp nháy `1 Hz`.
+- **Phụ đề & chỉ báo hình ảnh:** Hiện phụ đề cho Bóng Mực xuất hiện (kèm mũi tên đỏ/xanh chỉ hướng ở mép màn hình), gió sắp thổi, 10 s cuối, và đèn sắp hết dầu.
+- **Giảm chuyển động & Cỡ chữ:** Tùy chọn tắt rung/chớp; cỡ chữ cơ bản `>= 18 px` ở `1280×720` và tùy chọn **Chữ lớn (×1.25)**.
 
 ---
 
 ## 5. Sáng tạo của tôi
 
-Mọi phần sáng tạo chỉ nằm trong `src/render/`, **tách hoàn toàn khỏi `src/core/`** để không làm đổi đầu ra headless:
-1. **Nhân vật Mây mang bản sắc Việt:** Áo `#E8E2D0`, khăn đỏ `#C8102E`, đội **nón lá** treo đèn lồng nhỏ và các đom đóm đang mang **bay xoay quanh người**.
-2. **Đèn trời bay lên bầu trời sao:** Mỗi khi thắp sáng một Đèn Lồng Lớn, hai chiếc đèn trời ấm áp bay lên giữa bầu trời đêm.
-3. **Âm thanh tổng hợp Web Audio hoàn toàn bằng code:** Nhạc nền đêm ngũ cung kết hợp đủ bộ hiệu ứng cho mọi hành động, cảnh báo gió và đếm ngược 10 s cuối (không cần file âm thanh ngoài).
+Mọi phần sáng tạo chỉ nằm trong `src/render/`, **tách tuyệt đối khỏi `src/core/`** và **tự động tắt trong Benchmark/Soak** để không ảnh hưởng đầu ra headless hay số đo:
+1. **Nhân vật Mây mang bản sắc Việt:** Áo `#E8E2D0`, khăn đỏ `#C8102E`, đội **nón lá** treo đèn lồng nhỏ và các đom đóm đang mang **bay xoay quanh người** theo sức chứa động (10 → 20).
+2. **Đèn trời bay lên bầu trời sao:** Mỗi lần thắp sáng Đèn Lồng Lớn, hai chiếc đèn trời ấm áp bay lên trời đêm.
+3. **Âm thanh tổng hợp Web Audio:** Nhạc nền đêm ngũ cung kết hợp đủ bộ hiệu ứng cho mọi hành động, cảnh báo gió và đếm ngược 10 s cuối (không cần file âm thanh ngoài).
 
 ---
 
-## 6. Tài liệu & Bằng chứng SDLC
+## 6. Tài liệu, Bằng chứng & Harness AI
 
 - **Harness AI:** [AGENTS.md](AGENTS.md), [.agents/skills/verify-phase/SKILL.md](.agents/skills/verify-phase/SKILL.md), [.githooks/pre-push](.githooks/pre-push)
-- **Giả định & Acceptance Criteria:** [docs/notes/assumptions.md](docs/notes/assumptions.md)
-- **Nhật ký dùng AI & Token:** [docs/notes/ai-log.md](docs/notes/ai-log.md)
-- **Đánh giá & Retro:** [docs/notes/retro.md](docs/notes/retro.md)
-- **Bằng chứng Phase 1:** [docs/proof/phase-1/PROOF.md](docs/proof/phase-1/PROOF.md)
-- **Bằng chứng Phase 2:** [docs/proof/phase-2/PROOF.md](docs/proof/phase-2/PROOF.md)
-- **Bằng chứng Phase 3:** [docs/proof/phase-3/PROOF.md](docs/proof/phase-3/PROOF.md)
-- **ADR & Breaking Changes:** [docs/notes/ADR-001-lantern-fuel-and-dawn-win.md](docs/notes/ADR-001-lantern-fuel-and-dawn-win.md), [CHANGELOG.md](CHANGELOG.md)
-- **Bản quyền & Nguồn:** [CREDITS.md](CREDITS.md), [LICENSE](LICENSE)
+- **Số đo thật:** [bench.json](bench.json), [soak.json](soak.json)
+- **Bằng chứng 4 Phase:** [Phase 1](docs/proof/phase-1/PROOF.md) · [Phase 2](docs/proof/phase-2/PROOF.md) · [Phase 3](docs/proof/phase-3/PROOF.md) · [Phase 4](docs/proof/phase-4/PROOF.md)
+- **Ghi chép SDLC:** [Giả định & AC](docs/notes/assumptions.md) · [ADR-001](docs/notes/ADR-001-lantern-fuel-and-dawn-win.md) · [Nhật ký AI & Token](docs/notes/ai-log.md) · [Retro tổng kết](docs/notes/retro.md)
+- **Phát hành & Bản quyền:** [CHANGELOG.md](CHANGELOG.md), [CREDITS.md](CREDITS.md), [LICENSE](LICENSE)

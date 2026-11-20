@@ -51,9 +51,12 @@ function runHeadless({ seed = 42, night = 1, ticks = 300, snapshotEvery = 10, sc
   }
 }
 
-// Updated for Phase 3 (Ticket-03): Contract v1.2 breaking changes (fuel, relight, dawn_survived win)
-test('Contract file has required v1.2 fields and standard tuning', () => {
-  assert.equal(CONTRACT.contract_version, '1.2');
+// Updated for Phase 4 (Ticket-04): Contract v1.3 adds bench_cmd & soak_cmd while keeping all v1.2 tuning
+test('Contract file has required v1.3 fields and standard tuning', () => {
+  assert.equal(CONTRACT.contract_version, '1.3');
+  assert.equal(CONTRACT.bench_cmd, 'node dist/bench.mjs');
+  assert.equal(CONTRACT.soak_cmd, 'node --expose-gc --max-semi-space-size=2 dist/soak.mjs');
+  assert.equal(CONTRACT.run_cmd, 'node dist/run.mjs');
   assert.equal(CONTRACT.tuning.player_speed, 6.0);
   assert.equal(CONTRACT.tuning.carry_capacity, 10);
   assert.equal(CONTRACT.tuning.capacity_max, 20);
