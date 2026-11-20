@@ -1,5 +1,12 @@
 import './style.css';
-import { defaultInputState, distXZ, DT, TICK_RATE, TUNING } from './core/config.ts';
+import {
+  defaultInputState,
+  distXZ,
+  DT,
+  MAX_FUEL_UNITS,
+  TICK_RATE,
+  TUNING
+} from './core/config.ts';
 import { GameSimulation } from './core/simulation.ts';
 import type { NightId } from './core/types.ts';
 import { SoundEffects } from './render/audio.ts';
@@ -8,6 +15,7 @@ import { GameSceneRenderer } from './render/scene.ts';
 interface Settings {
   volume: number; // 0..1
   sensitivity: number; // 0.1..1.0
+  colorblind: boolean;
 }
 
 const SETTINGS_KEY = 'dao-den-long-settings-v1';
@@ -22,13 +30,14 @@ function loadSettings(): Settings {
         sensitivity:
           typeof parsed.sensitivity === 'number'
             ? Math.max(0.1, Math.min(1, parsed.sensitivity))
-            : 0.35
+            : 0.35,
+        colorblind: Boolean(parsed.colorblind)
       };
     }
   } catch {
     // ignore storage errors
   }
-  return { volume: 0.6, sensitivity: 0.35 };
+  return { volume: 0.6, sensitivity: 0.35, colorblind: false };
 }
 
 function saveSettings(s: Settings): void {
@@ -51,6 +60,7 @@ const valCharm = document.getElementById('val-charm')!;
 const valDash = document.getElementById('val-dash')!;
 const valPulse = document.getElementById('val-pulse')!;
 const moteBar = document.getElementById('mote-bar')!;
+const valMoteCount = document.getElementById('val-mote-count')!;
 const hudPrompt = document.getElementById('hud-prompt')!;
 const hudToast = document.getElementById('hud-toast')!;
 const offscreenArrow = document.getElementById('offscreen-arrow')!;
@@ -71,10 +81,11 @@ const inputVolume = document.getElementById('input-volume') as HTMLInputElement;
 const lblVolume = document.getElementById('lbl-volume')!;
 const inputSens = document.getElementById('input-sens') as HTMLInputElement;
 const lblSens = document.getElementById('lbl-sens')!;
+const inputColorblind = document.getElementById('input-colorblind') as HTMLInputElement;
 
-// Build 10 mote slots
+// Build up to capacity_max (20) mote slots
 const moteSlots: HTMLDivElement[] = [];
-for (let i = 0; i < TUNING.carry_capacity; i++) {
+for (let i = 0; i < TUNING.capacity_max; i++) {
   const slot = document.createElement('div');
   slot.className = 'mote-slot';
   moteBar.appendChild(slot);
@@ -86,11 +97,18 @@ const sfx = new SoundEffects();
 let settings = loadSettings();
 sfx.volume = settings.volume;
 
+function applyColorblind(): void {
+  renderer.colorblindMode = settings.colorblind;
+  document.body.classList.toggle('colorblind', settings.colorblind);
+}
+
 function syncSettingsUI(): void {
   inputVolume.value = String(Math.round(settings.volume * 100));
   lblVolume.textContent = `${Math.round(settings.volume * 100)}%`;
   inputSens.value = String(Math.round(settings.sensitivity * 100));
   lblSens.textContent = settings.sensitivity.toFixed(2);
+  inputColorblind.checked = settings.colorblind;
+  applyColorblind();
 }
 syncSettingsUI();
 
@@ -246,6 +264,10 @@ inputSens.addEventListener('input', () => {
   settings.sensitivity = Number(inputSens.value) / 100;
   lblSens.textContent = settings.sensitivity.toFixed(2);
 });
+inputColorblind.addEventListener('change', () => {
+  settings.colorblind = inputColorblind.checked;
+  applyColorblind();
+});
 document.getElementById('btn-settings-close')!.addEventListener('click', () => {
   saveSettings(settings);
   if (settingsReturnTo === 'menu') showOnlyOverlay(menuOverlay);
@@ -313,15 +335,20 @@ function formatTime(seconds: number): string {
 function updateHud(): void {
   valFlames.textContent = sim.player.flames > 0 ? '🔥'.repeat(sim.player.flames) : '💨';
   valNightName.textContent = sim.map.name;
-  valTime.textContent = formatTime(sim.timeLeftS);
-  valTime.classList.toggle('timer-danger', sim.timeLeftS <= 30);
+  const isDangerTime = sim.timeLeftS <= 30;
+  valTime.textContent = `${isDangerTime && settings.colorblind ? '⚠ ' : ''}${formatTime(sim.timeLeftS)}`;
+  valTime.classList.toggle('timer-danger', isDangerTime);
 
   const litCount = sim.lanterns.filter((l) => l.lit).length;
-  valLanterns.textContent = `${litCount}/${sim.lanterns.length}`;
+  const neededLit = Math.ceil(TUNING.win_ratio * sim.lanterns.length);
+  valLanterns.textContent = `${litCount}/${sim.lanterns.length} (cần ${neededLit})`;
   valScore.textContent = String(sim.score);
 
-  // 10-slot mote bar
+  // Dynamic capacity mote bar (10..20)
+  const cap = sim.getCapacity();
+  valMoteCount.textContent = `${sim.player.carried} / ${cap}`;
   for (let i = 0; i < moteSlots.length; i++) {
+    moteSlots[i].style.display = i < cap ? 'block' : 'none';
     moteSlots[i].classList.toggle('filled', i < sim.player.carried);
   }
 
@@ -361,12 +388,20 @@ function updateHud(): void {
     valPulse.textContent = 'Sẵn sàng';
   }
 
-  // Contextual prompt
-  const nearUnlit = sim.lanterns.find(
-    (l) => !l.lit && distXZ(sim.player.pos, l.pos) <= TUNING.interact_radius
+  // Contextual prompt (unlit OR lit with fuel < 100)
+  const nearLantern = sim.lanterns.find(
+    (l) =>
+      (!l.lit || l.fuelUnits < MAX_FUEL_UNITS) &&
+      distXZ(sim.player.pos, l.pos) <= TUNING.interact_radius
   );
-  if (sim.state === 'playing' && nearUnlit) {
-    hudPrompt.textContent = `E — Nạp ánh sáng (${nearUnlit.deposited}/${TUNING.lantern_cost})`;
+  if (sim.state === 'playing' && nearLantern) {
+    if (!nearLantern.lit) {
+      const cost = nearLantern.everLit ? TUNING.relight_cost : TUNING.lantern_cost;
+      hudPrompt.textContent = `E — ${nearLantern.everLit ? 'Thắp lại' : 'Nạp ánh sáng'} (${nearLantern.deposited}/${cost})`;
+    } else {
+      const fuel = Math.round((nearLantern.fuelUnits / TICK_RATE) * 10) / 10;
+      hudPrompt.textContent = `E — Châm dầu ${nearLantern.id} (${fuel}/100)`;
+    }
     hudPrompt.classList.remove('hidden');
   } else {
     hudPrompt.classList.add('hidden');
@@ -464,14 +499,19 @@ function animate(now: number): void {
           sfx.playDeposit();
           const dep = Number(ev.data.deposited ?? 0);
           const amt = Number(ev.data.amount ?? 0);
-          if (dep < TUNING.lantern_cost) {
-            showToast(
-              `Đã nạp +${amt} vào ${String(ev.data.lantern_id)} (${dep}/${TUNING.lantern_cost}) · +${amt * TUNING.score.per_mote} điểm`
-            );
-          }
+          showToast(`Đã nạp +${amt} vào ${String(ev.data.lantern_id)} (${dep}) · +${amt * TUNING.score.per_mote} điểm`);
+        } else if (ev.name === 'refuel') {
+          sfx.playDeposit();
+          showToast(`Đã châm dầu ${String(ev.data.lantern_id)} → ${String(ev.data.fuel)}/100`);
+        } else if (ev.name === 'lantern_out') {
+          sfx.playHit();
+          showToast(`${settings.colorblind ? '⚠ ' : ''}${String(ev.data.lantern_id)} đã cạn dầu và tắt!`);
         } else if (ev.name === 'lantern_lit') {
           sfx.playLanternLit();
-          showToast(`✨ ${String(ev.data.lantern_id)} ĐÃ THẮP SÁNG! (+${TUNING.score.per_lantern} điểm)`);
+          const isRelight = Boolean(ev.data.relight);
+          showToast(
+            `✨ ${String(ev.data.lantern_id)} ${isRelight ? 'ĐÃ THẮP LẠI (+40đ)' : 'ĐÃ THẮP SÁNG (+100đ)'}!`
+          );
           const lit = sim.lanterns.find((l) => l.id === ev.data.lantern_id);
           if (lit) {
             renderer.spawnSkyLantern(lit.pos);

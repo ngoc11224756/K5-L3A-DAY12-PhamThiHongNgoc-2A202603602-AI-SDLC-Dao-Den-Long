@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { TUNING } from '../core/config.ts';
+import { LOW_FUEL_UNITS, MAX_FUEL_UNITS, TUNING } from '../core/config.ts';
 import type { GameSimulation } from '../core/simulation.ts';
 import type { NightId, Vec3 } from '../core/types.ts';
 
-// Standard Palette (Ticket-02)
+// Standard Palette (Ticket-02 + Ticket-03 Colorblind Mode)
 const PALETTE = {
   sky: 0x0e1430,
   fog: 0x1b2350,
@@ -18,6 +18,7 @@ const PALETTE = {
   moteHalo: 0xffe58a,
   shadeBody: 0x120a1a,
   shadeRim: 0x7a3cff,
+  shadeRimColorblind: 0x00b3ff,
   shadeStun: 0x3a3450,
   mayCloak: 0xe8e2d0,
   mayScarf: 0xc8102e,
@@ -28,14 +29,18 @@ const PALETTE = {
 interface LanternVisual {
   group: THREE.Group;
   bulb: THREE.Mesh;
+  tearBand: THREE.Mesh;
   light: THREE.PointLight;
   safeRing: THREE.Mesh;
   progressBar: THREE.Mesh;
+  fuelBarGroup: THREE.Group;
+  fuelFill: THREE.Mesh;
 }
 
 interface ShadeVisual {
   group: THREE.Group;
   body: THREE.Mesh;
+  eyes: THREE.Mesh[];
   stunRing: THREE.Mesh;
 }
 
@@ -71,6 +76,7 @@ export class GameSceneRenderer {
   private windLeaves: THREE.Points;
   private skyLanterns: SkyLantern[] = [];
   private elapsed = 0;
+  colorblindMode = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -356,11 +362,11 @@ export class GameSceneRenderer {
     light.position.set(0, 1.5, 0.5);
     group.add(light);
 
-    // Orbiting carried motes (up to 10)
+    // Orbiting carried motes (up to capacity_max = 20)
     const orbitMotes: THREE.Mesh[] = [];
     const moteGeo = new THREE.SphereGeometry(0.1, 8, 8);
     const moteMat = new THREE.MeshBasicMaterial({ color: PALETTE.moteCore });
-    for (let i = 0; i < TUNING.carry_capacity; i++) {
+    for (let i = 0; i < TUNING.capacity_max; i++) {
       const m = new THREE.Mesh(moteGeo, moteMat);
       m.visible = false;
       group.add(m);
@@ -406,6 +412,31 @@ export class GameSceneRenderer {
     bulb.position.y = 3.6;
     group.add(bulb);
 
+    // Visible tear/rip stripe on unlit lantern (non-color distinction for colorblind mode)
+    const tearBand = new THREE.Mesh(
+      new THREE.BoxGeometry(1.02, 0.16, 0.14),
+      new THREE.MeshBasicMaterial({ color: 0x151822 })
+    );
+    tearBand.position.y = 3.55;
+    tearBand.rotation.z = 0.45;
+    group.add(tearBand);
+
+    // Floating fuel bar above lit lantern
+    const fuelBarGroup = new THREE.Group();
+    fuelBarGroup.position.y = 5.1;
+    const fuelBg = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.0, 0.24),
+      new THREE.MeshBasicMaterial({ color: 0x121629, side: THREE.DoubleSide })
+    );
+    const fuelFill = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.9, 0.16),
+      new THREE.MeshBasicMaterial({ color: PALETTE.lanternLit, side: THREE.DoubleSide })
+    );
+    fuelFill.position.z = 0.01;
+    fuelBarGroup.add(fuelBg, fuelFill);
+    fuelBarGroup.visible = false;
+    group.add(fuelBarGroup);
+
     const light = new THREE.PointLight(PALETTE.lanternLit, 0, 26, 1.4);
     light.position.y = 3.7;
     group.add(light);
@@ -439,7 +470,7 @@ export class GameSceneRenderer {
     group.add(progressBar);
 
     this.scene.add(group);
-    return { group, bulb, light, safeRing, progressBar };
+    return { group, bulb, tearBand, light, safeRing, progressBar, fuelBarGroup, fuelFill };
   }
 
   private createShadeVisual(pos: Vec3): ShadeVisual {
@@ -473,7 +504,7 @@ export class GameSceneRenderer {
     group.add(stunRing);
 
     this.scene.add(group);
-    return { group, body, stunRing };
+    return { group, body, eyes: [eyeL, eyeR], stunRing };
   }
 
   private createMoteVisual(pos: Vec3): THREE.Group {
@@ -612,16 +643,34 @@ export class GameSceneRenderer {
       vis.group.position.set(l.pos[0], l.pos[1], l.pos[2]);
       const mat = vis.bulb.material as THREE.MeshStandardMaterial;
       const safeMat = vis.safeRing.material as THREE.MeshBasicMaterial;
+      const blink1Hz = Math.sin(this.elapsed * Math.PI * 2) > 0;
       if (l.lit) {
         litCount += 1;
+        const fuelRatio = Math.max(0, Math.min(1, l.fuelUnits / MAX_FUEL_UNITS));
+        const isLow = l.fuelUnits < LOW_FUEL_UNITS;
+        vis.bulb.scale.set(1, 1, 1);
+        vis.tearBand.visible = false;
+        vis.fuelBarGroup.visible = !isLow || blink1Hz;
+        vis.fuelBarGroup.lookAt(this.camera.position);
+        vis.fuelFill.scale.x = Math.max(0.01, fuelRatio);
+        vis.fuelFill.position.x = -(1 - fuelRatio) * 0.95;
+        (vis.fuelFill.material as THREE.MeshBasicMaterial).color.setHex(
+          isLow ? (this.colorblindMode ? 0xffffff : 0xff5a5f) : PALETTE.lanternLit
+        );
+
         mat.color.setHex(PALETTE.lanternCore);
         mat.emissive.setHex(PALETTE.lanternLit);
-        mat.emissiveIntensity = 1.85 + Math.sin(this.elapsed * 4) * 0.12;
-        vis.light.intensity = 4.2;
-        safeMat.opacity = 0.34;
+        mat.emissiveIntensity = isLow ? (blink1Hz ? 1.5 : 0.35) : 1.85;
+        vis.light.intensity = isLow ? (blink1Hz ? 2.6 : 0.8) : 4.2;
+        safeMat.opacity = isLow ? 0 : 0.34;
         vis.progressBar.visible = false;
       } else {
-        const ratio = l.deposited / TUNING.lantern_cost;
+        const cost = l.everLit ? TUNING.relight_cost : TUNING.lantern_cost;
+        const ratio = l.deposited / cost;
+        // Unlit lantern squashed 20% + visible tear stripe
+        vis.bulb.scale.set(1, 0.8, 1);
+        vis.tearBand.visible = true;
+        vis.fuelBarGroup.visible = false;
         mat.color.setHex(ratio > 0 ? 0x8a6f52 : PALETTE.lanternOff);
         mat.emissiveIntensity = 0.06 + ratio * 0.85;
         vis.light.intensity = ratio * 1.4;
@@ -637,6 +686,7 @@ export class GameSceneRenderer {
     this.dirLight.intensity = 0.4 + progress * 0.45;
 
     // Shades
+    const rimHex = this.colorblindMode ? PALETTE.shadeRimColorblind : PALETTE.shadeRim;
     const activeShadeIds = new Set<string>();
     for (const s of sim.shades) {
       activeShadeIds.add(s.id);
@@ -652,17 +702,20 @@ export class GameSceneRenderer {
       );
       vis.group.lookAt(sim.player.pos[0], vis.group.position.y, sim.player.pos[2]);
       const mat = vis.body.material as THREE.MeshStandardMaterial;
+      for (const eye of vis.eyes) {
+        (eye.material as THREE.MeshBasicMaterial).color.setHex(rimHex);
+      }
       if (s.state === 'stunned') {
         mat.color.setHex(PALETTE.shadeStun);
-        mat.emissive.setHex(PALETTE.shadeRim);
+        mat.emissive.setHex(rimHex);
         vis.stunRing.visible = true;
         vis.stunRing.rotation.z = this.elapsed * 5;
       } else {
         mat.color.setHex(PALETTE.shadeBody);
-        mat.emissive.setHex(PALETTE.shadeRim);
+        mat.emissive.setHex(rimHex);
         vis.stunRing.visible = false;
       }
-      vis.group.scale.setScalar(s.state === 'spawning' ? 0.55 : 1.0);
+      vis.group.scale.setScalar(s.state === 'spawning' ? 0.55 : s.state === 'drain' ? 1.15 : 1.0);
     }
     for (const [id, vis] of this.shadeMap.entries()) {
       if (!activeShadeIds.has(id)) {

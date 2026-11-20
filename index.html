@@ -36,7 +36,10 @@
         <div class="hud-bottom">
           <div class="hud-bottom-center">
             <div class="badge hidden" id="val-charm">Bùa Gió: 10.0s</div>
-            <div class="mote-bar" id="mote-bar"></div>
+            <div class="mote-bar-wrap">
+              <div class="mote-bar" id="mote-bar"></div>
+              <span class="mote-count" id="val-mote-count">0 / 10</span>
+            </div>
             <div class="controls-mini">
               <span><b>WASD / ↑↓←→</b> Đi</span>
               <span><b>Kéo chuột / Z,C</b> Camera</span>
@@ -113,6 +116,12 @@
           <div class="setting-row">
             <label for="input-sens">Độ nhạy chuột: <b id="lbl-sens">0.35</b></label>
             <input id="input-sens" type="range" min="10" max="100" value="35" />
+          </div>
+          <div class="setting-row checkbox-row">
+            <label>
+              <input id="input-colorblind" type="checkbox" />
+              Bảng màu dễ phân biệt (Chế độ mù màu)
+            </label>
           </div>
           <button id="btn-settings-close" class="btn-primary" type="button">Lưu & Đóng</button>
         </div>
