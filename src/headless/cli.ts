@@ -2,12 +2,19 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { defaultInputState } from '../core/config.ts';
 import { GameSimulation } from '../core/simulation.ts';
-import type { EndRecord, InputState, InputsFile, JsonlRecord, ScenarioConfig } from '../core/types.ts';
+import type {
+  EndRecord,
+  InputState,
+  InputsFile,
+  JsonlRecord,
+  NightId,
+  ScenarioConfig
+} from '../core/types.ts';
 import { validateInputsFile, validateScenarioConfig, ValidationError } from '../core/validation.ts';
 
 interface CliArgs {
   seed: number;
-  night: number;
+  night: NightId;
   ticks: number;
   out: string;
   snapshotEvery: number;
@@ -39,10 +46,11 @@ function parseArgs(argv: string[]): CliArgs {
   };
 
   const seed = reqInt('--seed');
-  const night = reqInt('--night');
-  if (night !== 1) {
-    throw new Error(`Unsupported --night ${night}. Phase 1 supports --night 1 only.`);
+  const nightRaw = reqInt('--night');
+  if (nightRaw !== 1 && nightRaw !== 2 && nightRaw !== 3) {
+    throw new Error(`Unsupported --night ${nightRaw}. Contract v1.1 supports 1, 2, or 3.`);
   }
+  const night = nightRaw as NightId;
   const ticks = reqInt('--ticks');
   if (ticks < 0) {
     throw new Error(`--ticks must be >= 0, got: ${ticks}`);
@@ -118,14 +126,19 @@ function main(): void {
 
   // Tick 0 snapshot: state after scenario setup, before any input
   records.push(sim.getSnapshot());
+  records.push({
+    type: 'event',
+    tick: 0,
+    name: 'night_start',
+    data: { night: args.night }
+  });
 
   const currentInput: InputState = defaultInputState();
   let frameIdx = 0;
 
   for (let k = 0; k < args.ticks; k++) {
-    if (sim.state !== 'playing') break;
+    if (sim.state === 'won' || sim.state === 'lost') break;
 
-    // Apply frame at tick k if present
     while (frameIdx < inputs.frames.length && inputs.frames[frameIdx].tick <= k) {
       const f = inputs.frames[frameIdx];
       if (f.move !== undefined) currentInput.move = [f.move[0], f.move[1]];
@@ -134,6 +147,7 @@ function main(): void {
       if (f.interact !== undefined) currentInput.interact = f.interact;
       if (f.pulse !== undefined) currentInput.pulse = f.pulse;
       if (f.dash !== undefined) currentInput.dash = f.dash;
+      if (f.pause !== undefined) currentInput.pause = f.pause;
       frameIdx += 1;
     }
 
@@ -146,7 +160,7 @@ function main(): void {
       records.push(sim.getSnapshot());
     }
 
-    if (sim.state !== 'playing') {
+    if ((sim.state as string) === 'won' || (sim.state as string) === 'lost') {
       break;
     }
   }
