@@ -108,6 +108,7 @@ export class GameSimulation {
   launchLocked = false;
   falling = false;
   respawnWaitTicks = 0;
+  benchMode = false;
 
   private prevInput: InputState = defaultInputState();
   private randomMotes: boolean;
@@ -317,6 +318,71 @@ export class GameSimulation {
     return Math.min(TUNING.capacity_max, TUNING.carry_capacity + 2 * this.successfulLights);
   }
 
+  /**
+   * Ticket-04 standard benchmark scene: Night 1, 200 wander shades, 100 motes, L1-L3 lit fuel 100.
+   * Disables spawns, damage, pickup, fuel decay, and night end; shades wander normally.
+   */
+  static createBenchmark(seed = 42): GameSimulation {
+    const rng = new SeededRng(seed);
+    const shades: Array<{ id: string; pos: Vec3; state: 'wander' }> = [];
+    for (let i = 0; i < 200; i++) {
+      // Evenly spread across Night 1 island (radius 40m) using seeded polar coordinates
+      const r = Math.sqrt((i + rng.next()) / 200) * 36.5;
+      const angle = rng.range(0, Math.PI * 2);
+      shades.push({
+        id: `S${i + 1}`,
+        pos: [round3(Math.cos(angle) * r), PULSE_HEIGHT_OFFSET, round3(Math.sin(angle) * r)],
+        state: 'wander'
+      });
+    }
+    const motes: Vec3[] = [];
+    for (let i = 0; i < 100; i++) {
+      const r = Math.sqrt((i + rng.next()) / 100) * 37.5;
+      const angle = rng.range(0, Math.PI * 2);
+      motes.push([round3(Math.cos(angle) * r), 0, round3(Math.sin(angle) * r)]);
+    }
+
+    const sim = new GameSimulation(seed, 1, {
+      player: { pos: [0, 0, 0], carried: 0, flames: 3 },
+      random_motes: false,
+      random_shades: false,
+      random_drifters: false,
+      wind_enabled: false,
+      lanterns: [
+        { id: 'L1', lit: true, fuel: 100 },
+        { id: 'L2', lit: true, fuel: 100 },
+        { id: 'L3', lit: true, fuel: 100 },
+        { id: 'L4', lit: false, fuel: 0 },
+        { id: 'L5', lit: false, fuel: 0 }
+      ],
+      shades,
+      motes
+    });
+    sim.benchMode = true;
+    return sim;
+  }
+
+  /** Advances 1 tick in benchmark mode: shades wander normally, no decay/damage/pickup/spawns/end. */
+  stepBenchmark(): void {
+    this.tick += 1;
+    this.simTick += 1;
+    for (const s of this.shades) {
+      const prevX = s.pos[0];
+      const prevZ = s.pos[2];
+      s.wanderAngle += 0.015;
+      const stepDist = this.map.shadeSpeed * 0.45 * DT;
+      const nx = s.pos[0] + Math.cos(s.wanderAngle) * stepDist;
+      const nz = s.pos[2] + Math.sin(s.wanderAngle) * stepDist;
+      if (Math.hypot(nx, nz) <= 38.5) {
+        s.pos[0] = nx;
+        s.pos[2] = nz;
+      } else {
+        s.wanderAngle += Math.PI * 0.75;
+      }
+      this.blockShadeAtSafeEdge(s, prevX, prevZ);
+    }
+  }
+
   private hasActiveSafeZone(l: LanternState): boolean {
     return l.lit && l.fuelUnits >= LOW_FUEL_UNITS;
   }
@@ -464,15 +530,14 @@ export class GameSimulation {
     const pulsePressed = input.pulse && !this.prevInput.pulse;
     const dashPressed = input.dash && !this.prevInput.dash;
 
-    this.prevInput = {
-      move: [input.move[0], input.move[1]],
-      cam_yaw_deg: input.cam_yaw_deg,
-      jump: input.jump,
-      interact: input.interact,
-      pulse: input.pulse,
-      dash: input.dash,
-      pause: input.pause
-    };
+    this.prevInput.move[0] = input.move[0];
+    this.prevInput.move[1] = input.move[1];
+    this.prevInput.cam_yaw_deg = input.cam_yaw_deg;
+    this.prevInput.jump = input.jump;
+    this.prevInput.interact = input.interact;
+    this.prevInput.pulse = input.pulse;
+    this.prevInput.dash = input.dash;
+    this.prevInput.pause = input.pause;
 
     if (this.state === 'paused') {
       if (pausePressed) {

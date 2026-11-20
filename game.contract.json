@@ -1,9 +1,11 @@
 {
-  "contract_version": "1.2",
+  "contract_version": "1.3",
   "team": "2A202603602-pham-thi-hong-ngoc",
   "build_cmd": "npm ci && npm run build",
-  "run_cmd": "npm run dev",
+  "run_cmd": "node dist/run.mjs",
   "headless_cmd": "node dist/headless.mjs",
+  "bench_cmd": "node dist/bench.mjs",
+  "soak_cmd": "node --expose-gc --max-semi-space-size=2 dist/soak.mjs",
   "tuning": {
     "player_speed": 6.0,
     "carry_capacity": 10,
