@@ -52,6 +52,7 @@ const valDash = document.getElementById('val-dash')!;
 const valPulse = document.getElementById('val-pulse')!;
 const moteBar = document.getElementById('mote-bar')!;
 const hudPrompt = document.getElementById('hud-prompt')!;
+const hudToast = document.getElementById('hud-toast')!;
 const offscreenArrow = document.getElementById('offscreen-arrow')!;
 
 const menuOverlay = document.getElementById('menu-overlay')!;
@@ -107,8 +108,22 @@ let wasWindWarn = false;
 
 const keys = new Set<string>();
 let pendingPauseToggle = false;
+let queuedJump = false;
+let queuedInteract = false;
+let queuedPulse = false;
+let queuedDash = false;
+let toastTimer: number | null = null;
 let isDragging = false;
 let lastMouseX = 0;
+
+function showToast(msg: string): void {
+  hudToast.textContent = msg;
+  hudToast.classList.remove('hidden');
+  if (toastTimer !== null) clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    hudToast.classList.add('hidden');
+  }, 2400);
+}
 
 function showOnlyOverlay(target: HTMLElement | null): void {
   [menuOverlay, introOverlay, pauseOverlay, settingsOverlay, resultOverlay].forEach((el) =>
@@ -261,6 +276,12 @@ window.addEventListener('keydown', (e) => {
       return;
     }
   }
+  if (!e.repeat && screenMode === 'playing') {
+    if (code === 'Space') queuedJump = true;
+    if (code === 'KeyE') queuedInteract = true;
+    if (code === 'KeyQ' || code === 'KeyF') queuedPulse = true;
+    if (code === 'ShiftLeft' || code === 'ShiftRight') queuedDash = true;
+  }
   keys.add(code);
 });
 
@@ -410,10 +431,14 @@ function animate(now: number): void {
       const wasGrounded = sim.player.grounded;
       input.move = [moveX, moveZ];
       input.cam_yaw_deg = camYawDeg;
-      input.jump = keys.has('Space');
-      input.interact = keys.has('KeyE');
-      input.pulse = keys.has('KeyQ') || keys.has('KeyF');
-      input.dash = keys.has('ShiftLeft') || keys.has('ShiftRight');
+      input.jump = keys.has('Space') || queuedJump;
+      input.interact = keys.has('KeyE') || queuedInteract;
+      input.pulse = keys.has('KeyQ') || keys.has('KeyF') || queuedPulse;
+      input.dash = keys.has('ShiftLeft') || keys.has('ShiftRight') || queuedDash;
+      queuedJump = false;
+      queuedInteract = false;
+      queuedPulse = false;
+      queuedDash = false;
       input.pause = pendingPauseToggle;
       pendingPauseToggle = false;
 
@@ -435,9 +460,18 @@ function animate(now: number): void {
 
       for (const ev of events) {
         if (ev.name === 'mote_picked') sfx.playPickup(Number(ev.data.carried ?? 1));
-        else if (ev.name === 'deposit') sfx.playDeposit();
-        else if (ev.name === 'lantern_lit') {
+        else if (ev.name === 'deposit') {
+          sfx.playDeposit();
+          const dep = Number(ev.data.deposited ?? 0);
+          const amt = Number(ev.data.amount ?? 0);
+          if (dep < TUNING.lantern_cost) {
+            showToast(
+              `Đã nạp +${amt} vào ${String(ev.data.lantern_id)} (${dep}/${TUNING.lantern_cost}) · +${amt * TUNING.score.per_mote} điểm`
+            );
+          }
+        } else if (ev.name === 'lantern_lit') {
           sfx.playLanternLit();
+          showToast(`✨ ${String(ev.data.lantern_id)} ĐÃ THẮP SÁNG! (+${TUNING.score.per_lantern} điểm)`);
           const lit = sim.lanterns.find((l) => l.id === ev.data.lantern_id);
           if (lit) {
             renderer.spawnSkyLantern(lit.pos);
@@ -447,9 +481,13 @@ function animate(now: number): void {
           sfx.playPulse();
           renderer.triggerPulseVfx(sim.player.pos);
         } else if (ev.name === 'dash') sfx.playDash();
-        else if (ev.name === 'charm_picked') sfx.playCharm();
-        else if (ev.name === 'drifter_steal') sfx.playDrifterSteal();
-        else if (ev.name === 'shade_spawned') sfx.playShadeSpawn();
+        else if (ev.name === 'charm_picked') {
+          sfx.playCharm();
+          showToast('Bùa Gió kích hoạt! Tốc độ 7.2 m/s & Lướt không hồi chiêu');
+        } else if (ev.name === 'drifter_steal') {
+          sfx.playDrifterSteal();
+          showToast(`Gió Lạc vừa cướp ${String(ev.data.amount)} đom đóm!`);
+        } else if (ev.name === 'shade_spawned') sfx.playShadeSpawn();
         else if (ev.name === 'player_hit') sfx.playHit();
         else if (ev.name === 'game_over') {
           showResultScreen(String(ev.data.result), String(ev.data.reason));
@@ -461,11 +499,12 @@ function animate(now: number): void {
 
     updateHud();
   } else if (pendingPauseToggle) {
-    // Sync pause state into simulation when resuming from UI
+    // Sync pause state into simulation and release pause edge so Resume works cleanly
     const input = defaultInputState();
     input.pause = true;
     pendingPauseToggle = false;
     sim.step(input);
+    sim.step(defaultInputState());
   }
 
   renderer.render(sim, camYawDeg, frameDt);
