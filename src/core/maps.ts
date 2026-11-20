@@ -41,7 +41,10 @@ function makeLanterns(coords: Vec3[]): LanternState[] {
     id: `L${idx + 1}`,
     pos: [pos[0], pos[1], pos[2]],
     lit: false,
-    deposited: 0
+    deposited: 0,
+    fuelUnits: 0,
+    everLit: false,
+    relitCount: 0
   }));
 }
 

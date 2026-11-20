@@ -20,7 +20,8 @@ const VALID_SHADE_STATES = new Set<ShadeStateKind>([
   'wander',
   'chase',
   'recoil',
-  'stunned'
+  'stunned',
+  'drain'
 ]);
 
 const VALID_DRIFTER_STATES = new Set<DrifterStateKind>(['idle', 'chase', 'flee', 'removed']);
@@ -130,7 +131,8 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
       'invuln_ticks',
       'dash_cd_ticks',
       'pulse_cd_ticks',
-      'charm_ticks'
+      'charm_ticks',
+      'successful_lights'
     ] as const) {
       if (p[k] !== undefined) {
         if (typeof p[k] !== 'number' || !Number.isInteger(p[k]) || (p[k] as number) < 0) {
@@ -204,7 +206,8 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
         id: typeof so.id === 'string' ? so.id : undefined,
         pos: so.pos,
         state: so.state as ShadeStateKind | undefined,
-        state_ticks_left: so.state_ticks_left as number | undefined
+        state_ticks_left: so.state_ticks_left as number | undefined,
+        target_lantern_id: typeof so.target_lantern_id === 'string' ? so.target_lantern_id : undefined
       };
     });
   }
@@ -278,11 +281,19 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
       if (lo.lit !== undefined && typeof lo.lit !== 'boolean') {
         throw new ValidationError(`scenario.lanterns[${idx}].lit must be a boolean`);
       }
+      if (lo.fuel !== undefined && (typeof lo.fuel !== 'number' || !Number.isFinite(lo.fuel) || lo.fuel < 0)) {
+        throw new ValidationError(`scenario.lanterns[${idx}].fuel must be a non-negative number`);
+      }
+      if (lo.ever_lit !== undefined && typeof lo.ever_lit !== 'boolean') {
+        throw new ValidationError(`scenario.lanterns[${idx}].ever_lit must be a boolean`);
+      }
       return {
         id: lo.id,
         pos: lo.pos as Vec3 | undefined,
         deposited: lo.deposited as number | undefined,
-        lit: lo.lit as boolean | undefined
+        lit: lo.lit as boolean | undefined,
+        fuel: lo.fuel as number | undefined,
+        ever_lit: lo.ever_lit as boolean | undefined
       };
     });
   }

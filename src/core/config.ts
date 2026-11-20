@@ -14,6 +14,20 @@ export const MAX_MOTE_COUNT = 30;
 export const MOTE_SPAWN_INTERVAL_TICKS = 240;
 export const DROPPED_MOTE_TTL_TICKS = 480;
 
+// Integer fuel precision (1/60th of a fuel unit)
+export const MAX_FUEL_UNITS = 100 * TICK_RATE; // 6000
+export const LOW_FUEL_UNITS = 30 * TICK_RATE; // 1800
+export const FUEL_PER_MOTE_UNITS = 10 * TICK_RATE; // 600
+export const FUEL_DECAY_UNITS_PER_TICK = 1; // 1.0/s
+export const FUEL_DRAIN_UNITS_PER_TICK = 5; // 5.0/s
+export const DRAIN_EVENT_INTERVAL_TICKS = 60;
+export const DRAIN_ENGAGE_RADIUS = 2.0;
+export const DRAIN_BREAK_PLAYER_RADIUS = 6.0;
+
+export const SCORE_RELIGHT = 40;
+export const SCORE_STUN_DRAINING = 15;
+export const SCORE_DAWN_LANTERN_BASE = 50;
+
 export const SHADE_FIRST_SPAWN_TICK = 300;
 export const SHADE_DETECT_RADIUS = 12.0;
 export const SHADE_LOSE_RADIUS = 18.0;
@@ -48,8 +62,16 @@ export const WIND_PUSH_SPEED = 2.0;
 export const TUNING: TuningConfig = {
   player_speed: 6.0,
   carry_capacity: 10,
+  capacity_max: 20,
   lantern_cost: 10,
+  relight_cost: 5,
   lantern_count_night1: 5,
+  fuel_max: 100,
+  fuel_decay_per_s: 1.0,
+  fuel_per_mote: 10,
+  low_fuel_threshold: 30,
+  drain_per_s: 5,
+  win_ratio: 0.6,
   pickup_radius: 1.0,
   interact_radius: 2.0,
   pulse_cost: 3,
@@ -60,9 +82,9 @@ export const TUNING: TuningConfig = {
   dash_speed: 14.0,
   dash_duration_s: 0.2,
   dash_cooldown_s: 1.5,
-  night1_duration_s: 300,
-  night2_duration_s: 330,
-  night3_duration_s: 360,
+  night1_duration_s: 240,
+  night2_duration_s: 270,
+  night3_duration_s: 300,
   flames: 3,
   invuln_s: 1.5,
   hit_drop_ratio: 0.5,
@@ -71,13 +93,18 @@ export const TUNING: TuningConfig = {
   shade_hit_radius: 1.0,
   fall_enabled: true,
   score: {
-    per_mote: 10,
+    per_mote: 5,
     per_lantern: 100,
     per_stun: 5,
-    per_second_left: 2,
+    per_second_left: 0,
     per_flame_left: 50
   }
 };
+
+export function round1(value: number): number {
+  const r = Math.round(value * 10) / 10;
+  return Object.is(r, -0) ? 0 : r;
+}
 
 export function round3(value: number): number {
   const r = Math.round(value * 1000) / 1000;
