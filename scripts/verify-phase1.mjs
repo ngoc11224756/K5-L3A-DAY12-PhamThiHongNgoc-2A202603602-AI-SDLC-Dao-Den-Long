@@ -71,8 +71,8 @@ const winRes = runCase('01-win-all-lit', {
   inputs: {
     frames: [
       { tick: 0, move: [0, 1], cam_yaw_deg: 0 },
-      { tick: 75, move: [0, 0], interact: true },
-      { tick: 76, interact: false }
+      { tick: 60, move: [0, 0], interact: true },
+      { tick: 61, interact: false }
     ]
   }
 });

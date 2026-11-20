@@ -15,7 +15,7 @@ export const SHADE_SPAWN_INTERVAL_TICKS = 2700; // 45 seconds
 export const MAX_RANDOM_SHADES = 5;
 
 export const TUNING: TuningConfig = {
-  player_speed: 7.0,
+  player_speed: 9.5,
   carry_capacity: 5,
   lantern_cost: 4,
   lantern_count_night1: 5,

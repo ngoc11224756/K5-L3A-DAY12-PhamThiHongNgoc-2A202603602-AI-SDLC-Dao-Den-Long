@@ -91,12 +91,13 @@ test('Tick 0 snapshot, movement rotation formula, diagonal normalization, and ju
 
   // After 60 ticks (1s) at cam_yaw_deg = 90 and move = [1, 1] (normalized -> [0.7071, 0.7071]):
   // x' = x*cos(90) + z*sin(90) = +0.7071, z' = -x*sin(90) + z*cos(90) = -0.7071
-  // Distance moved in 1s = player_speed = 7.0 m => pos ≈ [4.95, 0, -4.95]
+  // Distance moved in 1s = CONTRACT.tuning.player_speed
+  const expectedAxis = CONTRACT.tuning.player_speed * Math.SQRT1_2;
   const snap60 = lines.find((r) => r.type === 'snapshot' && r.tick === 60);
   assert.equal(snap60.time_left_s, 199);
   assert.equal(snap60.player.pos[1], 0);
-  assert.ok(Math.abs(snap60.player.pos[0] - 4.95) < 0.05, `x=${snap60.player.pos[0]}`);
-  assert.ok(Math.abs(snap60.player.pos[2] + 4.95) < 0.05, `z=${snap60.player.pos[2]}`);
+  assert.ok(Math.abs(snap60.player.pos[0] - expectedAxis) < 0.05, `x=${snap60.player.pos[0]}`);
+  assert.ok(Math.abs(snap60.player.pos[2] + expectedAxis) < 0.05, `z=${snap60.player.pos[2]}`);
 
   const end = lines.at(-1);
   assert.equal(end.type, 'end');

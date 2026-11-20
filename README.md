@@ -25,8 +25,8 @@ Mở trình duyệt tại địa chỉ Vite hiển thị (mặc định `http://
 
 | Phím / Thao tác | Chức năng |
 |---|---|
-| `W / A / S / D` | Di chuyển theo hướng camera |
-| `← / →` hoặc **kéo chuột ngang** | Xoay camera quanh Mây |
+| `W / A / S / D` hoặc `↑ / ↓ / ← / →` | Di chuyển theo hướng camera |
+| **Kéo chuột ngang** hoặc `Z / C` | Xoay camera quanh Mây |
 | `Space` | Nhảy |
 | `E` | Nạp đom đóm vào Đèn Lồng Lớn gần nhất (trong `3.5 m`) |
 | `Q` hoặc `F` | **Tỏa sáng (Pulse)** — tốn `1` đom đóm, làm choáng & đẩy lùi Bóng Mực trong `8.0 m` |

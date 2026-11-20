@@ -5,7 +5,7 @@
   "run_cmd": "npm run dev",
   "headless_cmd": "node dist/headless.mjs",
   "tuning": {
-    "player_speed": 7.0,
+    "player_speed": 9.5,
     "carry_capacity": 5,
     "lantern_cost": 4,
     "lantern_count_night1": 5,

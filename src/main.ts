@@ -32,6 +32,15 @@ let lastMouseX = 0;
 
 window.addEventListener('keydown', (e) => {
   const code = e.code;
+  if (
+    code === 'ArrowUp' ||
+    code === 'ArrowDown' ||
+    code === 'ArrowLeft' ||
+    code === 'ArrowRight' ||
+    code === 'Space'
+  ) {
+    e.preventDefault();
+  }
   if (code === 'KeyM') {
     sfx.muted = !sfx.muted;
     valAudio.textContent = sfx.muted ? 'Âm thanh: Tắt' : 'Âm thanh: Bật';
@@ -138,20 +147,20 @@ function animate(now: number): void {
   const frameDt = Math.min(0.1, (now - lastTime) / 1000);
   lastTime = now;
 
-  if (keys.has('ArrowLeft')) camYawDeg = (camYawDeg + 110 * frameDt) % 360;
-  if (keys.has('ArrowRight')) camYawDeg = (camYawDeg - 110 * frameDt + 360) % 360;
+  if (keys.has('KeyZ')) camYawDeg = (camYawDeg + 135 * frameDt) % 360;
+  if (keys.has('KeyC')) camYawDeg = (camYawDeg - 135 * frameDt + 360) % 360;
 
   if (sim.state === 'playing') {
     accumulator += frameDt;
     while (accumulator >= DT && sim.state === 'playing') {
       const input = defaultInputState();
-      // Camera looks along (+sin(yaw), +cos(yaw)), right is (-cos(yaw), +sin(yaw))
+      // Camera looks along (+sin(yaw), +cos(yaw)), left is (+cos(yaw), -sin(yaw))
       let moveZ = 0;
       let moveX = 0;
       if (keys.has('KeyW') || keys.has('ArrowUp')) moveZ += 1;
       if (keys.has('KeyS') || keys.has('ArrowDown')) moveZ -= 1;
-      if (keys.has('KeyA')) moveX += 1;
-      if (keys.has('KeyD')) moveX -= 1;
+      if (keys.has('KeyA') || keys.has('ArrowLeft')) moveX += 1;
+      if (keys.has('KeyD') || keys.has('ArrowRight')) moveX -= 1;
 
       input.move = [moveX, moveZ];
       input.cam_yaw_deg = camYawDeg;

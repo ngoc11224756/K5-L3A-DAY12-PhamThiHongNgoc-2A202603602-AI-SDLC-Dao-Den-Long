@@ -549,14 +549,15 @@ export class GameSceneRenderer {
       }
     }
 
-    // Third-person camera following Mây
-    const camDist = 11.5;
-    const camHeight = 6.2;
+    // Third-person camera following Mây (frame-rate independent smoothing)
+    const camDist = 9.8;
+    const camHeight = 5.4;
     const targetX = sim.player.pos[0] - Math.sin(yawRad) * camDist;
     const targetZ = sim.player.pos[2] - Math.cos(yawRad) * camDist;
     const targetY = sim.player.pos[1] + camHeight;
 
-    this.camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.14);
+    const alpha = 1 - Math.exp(-10 * dt);
+    this.camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), alpha);
     this.camera.lookAt(sim.player.pos[0], sim.player.pos[1] + 1.4, sim.player.pos[2]);
 
     this.renderer.render(this.scene, this.camera);
