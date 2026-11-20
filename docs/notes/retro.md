@@ -1,10 +1,16 @@
 # Đánh giá từng Phase & Retro
 
 ## Đánh giá Phase 1 (PRD-0 + Test Contract v1.0)
-- **Kết quả đạt được:** 10/10 tiêu chí nghiệm thu đạt (`npm test` 10/10 pass trong ~0.8s; `npm run build` sinh `dist/web/` và `dist/headless.mjs` không lỗi; `npm run verify` xác nhận SHA-256 giống hệt nhau giữa 2 lần chạy cùng seed).
-- **Chỗ chưa đạt / giới hạn hiện tại:** Chưa quay video demo (sẽ làm ở Checkpoint 5 sau Phase 4 theo lịch lab); chưa kiểm thử trực tiếp trên trình duyệt từ CLI vì Chrome chưa bật remote debugging — cần người dùng mở `npm run dev` kiểm tra trực quan.
-- **Hồi quy:** Không áp dụng ở Phase 1 (là baseline đầu tiên).
-- **Điều cần chỉnh cho Phase 2:** Khi nhận Ticket-02, đọc kỹ mọi thay đổi ở Test Contract và cập nhật `game.contract.json` + `src/core/config.ts` trước khi viết code mới; bổ sung unit test so sánh tự động toàn bộ khóa trong `game.contract.json` với `TUNING`.
+- **Kết quả đạt được:** 10/10 test pass, SHA-256 tất định khớp 100%, đã tag `phase-1` đúng hạn và chỉnh cảm giác điều khiển phím mũi tên theo phản hồi chơi thử.
+
+## Đánh giá Phase 2 (TICKET-02 "Ba hòn đảo" + Test Contract v1.1)
+- **Kết quả đạt được:**
+  - Đồng bộ hoàn toàn số liệu chuẩn v1.1 (`game.contract.json` & `src/core/config.ts`) và thứ tự 12 bước trong tick.
+  - Xây dựng đủ 3 bản đồ chuẩn (Đảo Bến, Đảo Cau có cầu tre & 2 bục nhảy, Đảo Chuông 3 tầng có 2 dốc, bục nhảy, tháp chuông & gió mạnh).
+  - Hoàn thiện đủ tính năng mới: Lướt (Dash), rơi khỏi đảo + hồi sinh, Gió Lạc, Bùa Gió, chuỗi 3 Đêm + Bình Minh, Tạm dừng (đóng băng `sim_tick`), Cài đặt lưu `localStorage`, âm thanh tổng hợp đầy đủ, HUD 10 ô + mũi tên chỉ đèn ngoài màn hình, bảng màu chuẩn.
+  - **Kiểm chứng & Hiệu năng:** 16/16 test pass (`10` hồi quy Phase 1 + `6` scenario Phase 2); chạy full Đêm 3 `21.600` tick hết **148 ms** (vượt xa yêu cầu `<= 30 s`), SHA-256 trùng khớp tuyệt đối.
+- **Chỗ chưa đo tự động:** FPS trung bình 3D ở 1280×720 (`>= 30 FPS`) cần đo trực tiếp trên trình duyệt có WebGL (cấu trúc low-poly < 200 draw calls nhẹ nên đạt mượt 60 FPS trên macOS).
+- **Điều cần chỉnh cho Phase 3:** Khi nhận Ticket-03 (có thể thay thế luật cũ trong 30 phút), giữ nguyên quy tắc tách `src/core/` và liệt kê ngay danh sách test bị ảnh hưởng trước khi sửa code.
 
 ---
 

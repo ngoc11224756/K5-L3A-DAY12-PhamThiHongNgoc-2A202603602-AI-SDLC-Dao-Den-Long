@@ -1,21 +1,19 @@
 # Nhật ký dùng AI & Quản lý Token
 
-## Phase 0 & Phase 1
-
-### Công cụ & Harness
-- **Agent:** Antigravity (Gemini)
-- **Harness đã xây dựng:**
-  - `AGENTS.md`: quy tắc kiến trúc tách `src/core/` và `src/render/`, đồng bộ `game.contract.json`, cấm `Math.random()` trong core, bắt buộc kiểm chứng trước khi chốt.
-  - `.agents/skills/verify-phase/SKILL.md`: quy trình tự động build → test → kiểm chứng tính tất định → xuất bằng chứng.
-  - `.githooks/pre-push`: hook tự động chạy `npm test` trước mỗi lần push để ngăn push khi test đỏ (bật bằng `git config core.hooksPath .githooks`).
-
-### Ước tính Token & Cách tiết kiệm
+## Tổng hợp Token & Cách tiết kiệm
 | Phase | Lượt tương tác chính | Ước tính token (in + out) | Cách tiết kiệm đã áp dụng |
 |---|---:|---:|---|
-| CP0 + Phase 1 | ~8 lượt | ~42,000 tokens (~$0.05–$0.10 ước tính) | Đọc song song toàn bộ 6 file hướng dẫn trong 1 lượt; chốt toàn bộ tuning + kiến trúc trước khi code; tạo nhóm file độc lập song song; chạy `tsc`, `build`, `test`, `verify` trong 1 lệnh duy nhất |
+| CP0 + Phase 1 | ~8 lượt | ~42,000 tokens (~$0.05–$0.10) | Đọc song song 6 file hướng dẫn; chốt Contract v1.0 trước khi code; gộp tạo file song song |
+| Phase 1 fix (điều khiển) | ~3 lượt | ~12,000 tokens (~$0.02) | Sửa trúng đích `src/main.ts`, `config.ts`, `game.contract.json` và chạy 1 lệnh kiểm chứng |
+| Phase 2 (Ticket-02) | ~6 lượt | ~58,000 tokens (~$0.08–$0.15) | Tách riêng `src/core/maps.ts` cho 3 bản đồ chuẩn; viết song song core + render + 16 test + script verify |
 
-### Lỗi / Sự cố phát hiện & Cách xử lý
-1. **Chrome remote debugging chưa bật** nên không tự đọc được trang Lab board trên `claude.ai` → chuyển sang copy-paste nguyên văn PRD-0 + Test Contract v1.0 để tránh đoán/bịa yêu cầu.
-2. **`npm install` bị chặn mạng trong sandbox** → chuyển chạy riêng bước `npm install` ngoài sandbox, còn toàn bộ `tsc`, `vite build`, `esbuild`, `node --test`, `verify-phase1` chạy hoàn toàn trong sandbox.
-3. **Đảm bảo chạy được trên mọi bản Node (>= 18) khi giảng viên chấm:** thay vì chạy trực tiếp `.ts` bằng Node 25, bổ sung `scripts/build-headless.mjs` dùng `esbuild` (có sẵn trong Vite) biên dịch ra `dist/headless.mjs` thuần JS.
-4. **GitHub PAT thiếu scope `workflow`** khiến GitHub từ chối push `.github/workflows/ci.yml` → chuyển cơ chế tự động kiểm chứng sang local git hook `.githooks/pre-push` (chạy `npm test` trước mọi lần push) để giữ quy trình tự động mà không cần cấp lại token.
+## Harness AI đã dùng & cập nhật
+- `AGENTS.md`: tạo ở CP0, cập nhật ở Phase 2 để bổ sung Contract v1.1, thứ tự 12 bước trong tick, và ngưỡng hiệu năng `21.600` tick `<= 30 s`.
+- `.agents/skills/verify-phase/SKILL.md`: tạo ở CP0, cập nhật ở Phase 2 cho bộ test hồi quy + Phase 2 + benchmark 21.600 tick.
+- `.githooks/pre-push`: tự động chạy `npm test` (16/16 test) trước mọi lần `git push`.
+
+## Lỗi của AI / Sự cố phát hiện & Cách xử lý
+1. **Phase 1 — Chrome remote debugging chưa bật:** Chuyển sang copy-paste nguyên văn PRD-0/Ticket-02 để không đoán yêu cầu.
+2. **Phase 1 — GitHub PAT thiếu scope `workflow`:** Chuyển CI từ `.github/workflows/ci.yml` sang local git hook `.githooks/pre-push`.
+3. **Phase 2 — TypeScript control-flow narrowing ở `src/headless/cli.ts`:** TS báo lỗi `TS2367` khi kiểm tra `sim.state === 'won'` sau khi gọi `sim.step()` (vì TS không suy luận mutation qua method). Đã xử lý gọn và chạy lại `tsc --noEmit` đạt 0 lỗi.
+4. **Phase 2 — Chênh lệch tâm 3D của Pulse (`player.y + 0.8`):** Phát hiện sớm khi thiết kế nếu Bóng Mực sinh ở `Y = 0` thì khoảng cách 3D tới tâm `0.8` sẽ bị lệch `sqrt(5^2 + 0.8^2) > 5.0`, nên đặt tâm Bóng Mực sinh tại `groundY + 0.8` đúng chuẩn Contract v1.0/v1.1.
